@@ -108,7 +108,10 @@ gc() # garbage collection
 ###
 ### PROFILE scan() header & contents
 system.time({
+  ### Scan Header Row
   header.names<-scan(file="Recode.csv", what=character(), sep=",", nlines=1)
+  
+  ### Resolve scan()'s what arguement
   whatList<-as.list(header.names)
   whatList[[1]]<-numeric()
   whatList[[2]]<-whatList[[3]]<-character()
@@ -116,9 +119,16 @@ system.time({
     whatList[[i]]<-integer()
   }
   names(whatList)<-header.names
+  
+  ### run scan() to read data
   df<-scan(file="Recode.csv", what=whatList, sep=",", nlines=3e6, skip=1)
   df<-data.frame(df)},
-  gcFirst=TRUE) # 2.6s
+  gcFirst=TRUE
+) # 3.54s
+
+
+
+
 
 ###
 # Object Checks
@@ -128,6 +138,11 @@ typeof(cc); typeof(cc1); typeof(cc2)
 for (i in 1:9){
   print(paste(i, typeof(df[,i])))
 }
+
+
+
+
+
 
 ###
 # PROFILE if(), else(), else if(): unvectorized
@@ -161,6 +176,9 @@ system.time(
     }
   },
   gcFirst = TRUE)
+
+
+
 
 
 ###
@@ -204,10 +222,6 @@ paste(mean(c(0.86,0.93,0.92)), "s; n=3")
 
 
 
-
-
-
-
 ###
 # PROFILE Formulas
 ###
@@ -239,102 +253,102 @@ system.time({
 paste(mean(c(0.19, 0.18, 0.19)), "s; n=3")
 
 
-###
-# PROFILE model fits DUMMY CODES
-###
-system.time({
-  attach(df)
-  m1<-lm(y~gender)
-  print(summary(m1))
-  print(Anova(m1, type="III"))
-  detach(df)},
-  gcFirst=TRUE)
-print(paste("mean using factor(dummy code) = ",
-            round(mean(c(1.64,1.45,1.43)),2),"s; n=3"))#1.51s
-# 
-system.time({
-  attach(df)
-  m1b<-lm(y~dummy_code)
-  print(summary(m1b))
-  Anova(m1b, type="III")
-  detach(df)},
-  gcFirst=TRUE)
-print(paste("mean using calculated(dummy code) = ",
-            round(mean(c(1.39, 1.38, 1.44)),2),"s; n=3")) #1.40s
-#
-system.time({
-  attach(df)
-  m2<-lm(y~gender2)
-  print(summary(m2))
-  print(Anova(m2, type="III"))
-  detach(df)},
-  gcFirst=TRUE)
-print(paste("mean using factor(3way DC) = ",
-            round(mean(c(1.52, 1.49, 1.52)),2),"s; n=3"))#1.51s
-print(paste("Correlation between dummy code 1 and 2 in gender2: ", 
-            cor(dc1, dc2)))
-#
-system.time({
-  attach(df)
-  m2b<-lm(y~gender2dummy1+gender2dummy2)
-  print(summary(m2b))
-  print(Anova(m2b))
-  detach(df)},
-  gcFirst=TRUE)
-print(paste("mean using calculated(3way DC) = ",
-            round(mean(c(1.55, 1.72, 1.56)),2),"s; n=3"))#1.61s
-print(paste("Correlation between dummy code 1 and 2: ", 
-            cor(dc1, dc2)))
 
+
+### 
+# Contrasts Attribute: Orthogonal
 ###
-# PROFILE model fits: CONTRAST CODES
-###
-contrasts(df[,"gender"])<-sort(cc)
-contrasts(df[,"gender"])
 system.time({
+  ### Set contrasts & Order them
+  contrasts(df[,"gender2"])<-matrix(c(cc1[order(names(cc1))],
+                                      cc2[order(names(cc2))]), 
+                                      nrow=3, byrow=FALSE)
+  colnames(contrasts(df[,"gender2"]))<-c("FemaleVsMale","FMvsOther")
+  print(contrasts(df[,"gender2"]))
   attach(df)
-  m1<-lm(y~gender)
-  print(summary(m1))
-  print(Anova(m1, type="III"))
-  detach(df)},
-  gcFirst=TRUE)
-print(paste("mean using factor(contrast) = ",
-            round(mean(c(1.44,1.41,1.51)),2),"s; n=3"))#1.45s
-# 
-system.time({
-  attach(df)
-  m1b<-lm(y~orthog_code)
-  print(summary(m1b))
-  Anova(m1b, type="III")
-  detach(df)},
-  gcFirst=TRUE)
-print(paste("mean using calculated(dummy code) = ",
-            round(mean(c(1.39, 1.35, 1.42)),2),"s; n=3")) #1.39s
-#
-contrasts(df[,"gender2"])<-matrix(c(cc1[order(names(cc1))],
-                                    cc2[order(names(cc2))]), 
-                                  nrow=3, byrow=TRUE)
-contrasts(df[,"gender2"])
-system.time({
-  attach(df)
-  m2<-lm(y~gender2)
+  m2<-lm(y ~ gender2)
   print(summary(m2))
   print(Anova(m2, type="III"))
   detach(df)},
   gcFirst=TRUE)
 print(paste("mean using factor(3way contrasts) = ",
-            round(mean(c(1.49,1.45,1.49)),2),"s; n=3"))#1.48s
+            round(mean(c(1.44,1.56,1.40)),2),"s; n=3"))#1.47s
 print(paste("Correlation between orthog code 1 and 2 in gender2:", 
-            cor(cc1, cc2)))
-#
+            cor(cc1, cc2)))#
+
+
+
+
+### 
+# Contrasts Attribute: Dummy
+###
+system.time({
+  ### Set contrasts & Order them
+  contrasts(df[,"gender2"])<-matrix(c(dc1[order(names(dc1))],
+                                      dc2[order(names(dc2))]), 
+                                    nrow=3, byrow=FALSE)
+  colnames(contrasts(df[,"gender2"]))<-c("MaleVsBaseLn","OtherVsBaseLn")
+  print(contrasts(df[,"gender2"]))
+  attach(df)
+  m2<-lm(y ~ gender2)
+  print(summary(m2))
+  print(Anova(m2), type="III")
+  detach(df)},
+  gcFirst=TRUE)
+print(paste("mean using factor(3way contrasts) = ",
+            round(mean(c(1.39,1.44,1.39)),2),"s; n=3"))#1.48s
+print(paste("Correlation between orthog code 1 and 2 in gender2:", 
+            cor(cc1, cc2)))#
+
+
+###
+# SysTime Dummy Codes
+###
 system.time({
   attach(df)
   m2b<-lm(y~gender2dummy1+gender2dummy2)
-  print(summary(m2b))
-  print(Anova(m2b))
+  print(summary2(m2b))
+  print(Anova(m2b), type="III")
   detach(df)},
   gcFirst=TRUE)
 print(paste("mean using calculated(3way DC) = ",
-            round(mean(c(1.55, 1.72, 1.56)),2),"s; n=3"))#1.61s
+            round(mean(c(1.78, 1.76, 1.75)),2),"s; n=3"))#1.76s
+print(paste("Correlation between dummy code 1 and 2: ", 
+            cor(dc1, dc2)))
+
+
+
+
+###
+# SysTime Orthogonal Contrasts + VIF
+###
+system.time({
+  attach(df)
+  m2b<-lm(y~gender2orthog1+gender2orthog2)
+  print(summary2(m2b))
+  print(Anova(m2b), type="3")
+  detach(df)},
+  gcFirst=TRUE)
+print(paste("mean using calculated(3way DC) = ",
+            round(mean(c(1.77, 1.97, 1.76)),2),"s; n=3"))#1.76s
+print(paste("Correlation between dummy code 1 and 2: ", 
+            cor(dc1, dc2)))
+
+
+
+
+
+###
+# SysTime Orthogonal Contrasts - VIF
+###
+system.time({
+  attach(df)
+  m2b<-lm(y~gender2orthog1+gender2orthog2)
+  print(summary(m2b))
+  print(anova(m2b), type="3")
+  detach(df)},
+  gcFirst=TRUE)
+print(paste("mean using calculated(3way DC) = ",
+            round(mean(c(1.46, 1.49, 1.42)),2),"s; n=3"))#1.76s
 print(paste("Correlation between dummy code 1 and 2: ", 
             cor(dc1, dc2)))
